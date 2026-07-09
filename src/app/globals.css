@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 42 33% 97%;
+    --foreground: 220 18% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 18% 12%;
+    --primary: 174 67% 28%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 37 88% 94%;
+    --secondary-foreground: 33 70% 22%;
+    --muted: 210 18% 92%;
+    --muted-foreground: 215 12% 43%;
+    --accent: 348 78% 94%;
+    --accent-foreground: 348 73% 34%;
+    --destructive: 0 72% 44%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 18% 84%;
+    --input: 214 18% 84%;
+    --ring: 174 67% 28%;
+  }
+
+  .dark {
+    --background: 222 22% 9%;
+    --foreground: 210 30% 94%;
+    --card: 222 20% 13%;
+    --card-foreground: 210 30% 94%;
+    --primary: 173 58% 46%;
+    --primary-foreground: 222 22% 9%;
+    --secondary: 32 38% 20%;
+    --secondary-foreground: 38 90% 84%;
+    --muted: 220 16% 20%;
+    --muted-foreground: 215 15% 68%;
+    --accent: 346 36% 22%;
+    --accent-foreground: 346 88% 86%;
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 16% 24%;
+    --input: 220 16% 24%;
+    --ring: 173 58% 46%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+@layer components {
+  .field-grid {
+    @apply grid gap-2;
+  }
+
+  .surface {
+    @apply rounded-lg border bg-card text-card-foreground shadow-sm;
+  }
+
+  .page-shell {
+    @apply mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8;
+  }
+}
