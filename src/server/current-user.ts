@@ -17,6 +17,7 @@ export async function getCurrentUser() {
       username: true,
       name: true,
       role: true,
+      amortizationModel: true,
       isDisabled: true,
     },
   });

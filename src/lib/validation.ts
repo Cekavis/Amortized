@@ -67,6 +67,10 @@ export const updateUserRoleSchema = z.object({
   }),
 });
 
+export const amortizationModelSchema = z.enum(["average", "logarithmic"], {
+  required_error: "请选择分摊方式",
+});
+
 export const categorySchema = z.object({
   id: z.string().optional(),
   name: requiredText("分类名称"),

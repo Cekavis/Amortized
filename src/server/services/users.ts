@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, type AmortizationModel } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
 
@@ -100,5 +100,15 @@ export async function updateUserRole(input: {
   return prisma.user.update({
     where: { id: input.userId },
     data: { role: input.role },
+  });
+}
+
+export async function updateAmortizationModel(
+  userId: string,
+  amortizationModel: AmortizationModel,
+) {
+  return prisma.user.update({
+    where: { id: userId },
+    data: { amortizationModel },
   });
 }

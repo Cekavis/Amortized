@@ -151,8 +151,8 @@ function DataTransferPanel({ scope }: { scope: Scope }) {
         <CardTitle>{system ? "整站数据" : "我的数据"}</CardTitle>
         <CardDescription>
           {system
-            ? "包含所有用户、密码哈希、分类和资产。导入会覆盖整站并退出当前登录。"
-            : "包含你的全部分类和资产。可导入到其他账号，数据将归属当前账号。"}
+            ? "包含所有用户、密码哈希、分摊设置、分类和资产。导入会覆盖整站并退出当前登录。"
+            : "包含你的分摊设置、全部分类和资产。可导入到其他账号，数据将归属当前账号。"}
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-5">

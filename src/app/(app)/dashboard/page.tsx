@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { ArrowDownRight, ArrowUpRight, Boxes, CircleDollarSign } from "lucide-react";
+import { ActionMessage } from "@/components/action-message";
 import { DashboardCharts } from "@/components/dashboard-charts";
+import { SubmitButton } from "@/components/submit-button";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -12,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { formatCny } from "@/lib/money";
 import { cn } from "@/lib/utils";
+import { updateAmortizationModelAction } from "@/server/actions/user-actions";
 import { requireCurrentUser } from "@/server/current-user";
 import {
   getDashboardData,
@@ -27,7 +30,11 @@ export default async function DashboardPage({
 }) {
   const user = await requireCurrentUser();
   const range = parseRange(searchParams.range);
-  const data = await getDashboardData(user.id, range);
+  const data = await getDashboardData(
+    user.id,
+    range,
+    user.amortizationModel,
+  );
   const diff = data.todayTotalCents - data.yesterdayTotalCents;
 
   return (
@@ -39,24 +46,55 @@ export default async function DashboardPage({
             今天是 {data.today}，所有统计只包含你的资产。
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {[
-            ["30", "30 天"],
-            ["90", "90 天"],
-            ["365", "1 年"],
-            ["all", "全部"],
-          ].map(([value, label]) => (
-            <Button
-              key={value}
-              asChild
-              variant={range === value ? "default" : "outline"}
+        <div className="flex flex-col gap-2 md:items-end">
+          <form
+            action={updateAmortizationModelAction}
+            className="flex flex-wrap items-center gap-2"
+            aria-label="分摊方式"
+          >
+            <input type="hidden" name="range" value={range} />
+            <span className="text-xs text-muted-foreground">分摊方式</span>
+            <SubmitButton
+              name="amortizationModel"
+              value="average"
+              variant={user.amortizationModel === "average" ? "default" : "outline"}
               size="sm"
+              pendingText="切换中..."
             >
-              <Link href={`/dashboard?range=${value}`}>{label}</Link>
-            </Button>
-          ))}
+              平均分摊
+            </SubmitButton>
+            <SubmitButton
+              name="amortizationModel"
+              value="logarithmic"
+              variant={
+                user.amortizationModel === "logarithmic" ? "default" : "outline"
+              }
+              size="sm"
+              pendingText="切换中..."
+            >
+              对数递减分摊
+            </SubmitButton>
+          </form>
+          <div className="flex flex-wrap gap-2">
+            {[
+              ["30", "30 天"],
+              ["90", "90 天"],
+              ["365", "1 年"],
+              ["all", "全部"],
+            ].map(([value, label]) => (
+              <Button
+                key={value}
+                asChild
+                variant={range === value ? "default" : "outline"}
+                size="sm"
+              >
+                <Link href={`/dashboard?range=${value}`}>{label}</Link>
+              </Button>
+            ))}
+          </div>
         </div>
       </div>
+      <ActionMessage searchParams={searchParams} />
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card>

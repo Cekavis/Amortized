@@ -35,7 +35,7 @@ export function DashboardCharts({
       <div className="surface p-5">
         <div className="mb-4">
           <h2 className="text-base font-semibold">每日总摊销</h2>
-          <p className="text-sm text-muted-foreground">当前已知净成本按使用日回填</p>
+          <p className="text-sm text-muted-foreground">当前已知净成本按所选方式回填</p>
         </div>
         <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">

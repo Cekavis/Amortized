@@ -1,6 +1,6 @@
 # Amortized Project Specification
 
-Last updated: 2026-07-09
+Last updated: 2026-07-15
 
 This document is the source of truth for building Amortized from an empty
 repository. Future agents should be able to implement the application without
@@ -15,7 +15,8 @@ amortized cost.
 The core user question is:
 
 > I own these things. Given what I paid, how long I have used them, and what I
-> sold them for, what is my daily average cost today and historically?
+> sold them for, how is my known net cost allocated per day today and
+> historically?
 
 Confirmed product defaults:
 
@@ -25,7 +26,8 @@ Confirmed product defaults:
 - Currency: CNY only for v1.
 - Account model: multi-account, private per-user data.
 - Registration model: closed registration.
-- Amortization model: current-known net cost backfilled across active usage days.
+- Amortization model: user-selected average or logarithmic current-known net
+  cost backfill; average is the default.
 - GitHub repository visibility: public.
 - Initial app version: `0.1.0`.
 
@@ -172,6 +174,7 @@ Required fields:
 - `passwordHash`
 - `name`
 - `role`
+- `amortizationModel` (`average` or `logarithmic`, default `average`)
 - `createdAt`
 - `updatedAt`
 
@@ -291,7 +294,20 @@ Example:
 This section is critical. Do not change the calculation model without explicit
 user approval.
 
-### 8.1 Per-Asset Calculation
+### 8.1 User-Level Model Selection
+
+The amortization model belongs to the user, not to an asset. Each user selects
+one of:
+
+- `average`: equal allocation across usage days; this is the default.
+- `logarithmic`: higher allocation near the start date, declining by natural
+  logarithm.
+
+The Dashboard must provide two compact controls near the top for switching the
+current user's model. The choice is persisted and applies consistently to that
+user's Dashboard aggregates, asset list values, and daily-cost sorting.
+
+### 8.2 Per-Asset Calculation
 
 Definitions:
 
@@ -299,14 +315,34 @@ Definitions:
 - `soldPriceCentsForCalculation = soldPriceCents ?? 0`
 - `netCostCents = priceCents - soldPriceCentsForCalculation`
 - `activeEndDate = endDate ?? today(Asia/Shanghai)`
-- `activeDays = inclusiveDays(startDate, activeEndDate)`, minimum `1`
-- `dailyCostCents = netCostCents / activeDays`
+- `n = inclusiveDays(startDate, activeEndDate)`, minimum `1`
+- `i = inclusiveDays(startDate, date)` for a date inside the active range
 
-`dailyCostCents` may be fractional in calculation results. Store money inputs as
-integer cents, but chart and dashboard calculations may use decimal values for
-accurate averages. Round only when displaying.
+Allocated daily cost may be fractional in calculation results. Store money
+inputs as integer cents, keep calculation and aggregation values unrounded, and
+round only when displaying.
 
-### 8.2 Historical Backfill Model
+### 8.3 Model Formulas
+
+Average allocation:
+
+```text
+d_i = netCostCents / n
+```
+
+Logarithmic allocation, using the natural logarithm (`Math.log`):
+
+```text
+w_i = ln(n / i) + 1
+Z_n = sum(j = 1..n, ln(n / j) + 1)
+d_i = netCostCents * w_i / Z_n
+```
+
+The weights cover the asset's complete current-known usage range. A chart that
+shows only part of that range must not renormalize the visible days. Build the
+per-asset denominator once, then reuse it for each requested date.
+
+### 8.4 Historical Backfill Model
 
 Historical charts use current-known net cost backfill.
 
@@ -314,8 +350,9 @@ For each asset:
 
 1. Compute its current-known net cost.
 2. Compute its current-known active day range.
-3. Divide net cost evenly across every active usage day.
-4. Add that daily amount to each date in the historical series.
+3. Allocate the net cost across every active usage day with the user's selected
+   model.
+4. Add each date's allocated amount to the historical series.
 
 Implications:
 
@@ -323,9 +360,12 @@ Implications:
   using `purchase price - sold price`.
 - Historical charts may change when the user edits price, dates, category, or
   sold price.
-- This is intentional and should be explained in UI copy only where necessary.
+- For an active asset, advancing today changes `n` and therefore recalculates
+  its complete history. An ended asset is unaffected by later dates.
+- This is intentional current-known net cost backfill. UI copy must not describe
+  it as market value, residual value, or a price forecast.
 
-### 8.3 Category Aggregation
+### 8.5 Category Aggregation
 
 For a date range:
 
@@ -336,7 +376,7 @@ For a date range:
 If future category history is needed, that is a new feature. v1 can use the
 asset's current category for historical aggregation.
 
-### 8.4 Edge Cases
+### 8.6 Edge Cases
 
 Required handling:
 
@@ -347,6 +387,7 @@ Required handling:
 - Sold price greater than purchase price: net daily cost is negative.
 - Price 0: allowed only if the UI intentionally supports free items; if allowed,
   daily cost is 0.
+- A one-day range has `n = 1`; both models allocate the entire net cost that day.
 - Invalid date ranges must be rejected before saving.
 
 ## 9. Required Views And UX
@@ -394,6 +435,11 @@ At minimum, show:
 - Category stacked chart or category share chart.
 - A compact list/table of assets with each asset's current daily cost.
 
+The top of the Dashboard must also provide a compact average/logarithmic model
+switch. All totals, comparisons, history, category breakdowns, and asset ranks
+must use the selected user model. Explain charts as current-known net cost
+backfill, not asset valuation.
+
 Chart design may be richer than the minimum, but must preserve the calculation
 model in this spec.
 
@@ -415,7 +461,8 @@ Required:
 - Filter by active vs ended.
 - Sort by start date, price, daily cost, and name.
 - Display category, price, start date, end/active status, sold price, and daily
-  cost.
+  cost, with the current user's allocation model identified. For active assets,
+  show today's allocation; for ended assets, show the end-date allocation.
 
 Asset form fields:
 
@@ -476,6 +523,11 @@ Regardless of transport, server behavior must satisfy these contracts:
 - Admin-only routes verify role on the server.
 - Form inputs are validated with shared schemas.
 - Errors are shown in the UI with actionable messages in Chinese.
+
+JSON backup schema v2 stores `amortizationModel` in personal and site-wide user
+data. v1 remains importable and defaults a missing model to `average`. Personal
+restore updates the current user's model in the same transaction as their
+categories and assets; site-wide restore preserves each user's model.
 
 Recommended route groups:
 
@@ -595,6 +647,13 @@ Required coverage:
 - Negative net cost.
 - Zero price if supported.
 - Per-asset daily cost.
+- Average and logarithmic allocation, including `netCostCents = 60000`, `n = 3`
+  producing approximately `[27956.166430490204, 18722.570475109133,
+  13321.263094400665]` and summing to the net cost within floating-point
+  tolerance.
+- Partial chart windows retaining full-range logarithmic weights.
+- Active-asset history changing when `today` advances, while ended-asset history
+  remains unchanged.
 - Historical backfill series.
 - Category aggregation.
 

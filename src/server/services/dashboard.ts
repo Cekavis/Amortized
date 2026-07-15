@@ -1,9 +1,10 @@
 import { addDays, todayInTimeZone, toDateKey } from "@/lib/date";
 import {
   buildHistoricalSeries,
-  calculateAssetAmortization,
-  categoryBreakdownForDate,
+  calculateDailyCostCents,
   isAssetActiveOnDate,
+  type AmortizationModel,
+  type HistoricalPoint,
 } from "@/lib/amortization";
 import { prisma } from "@/lib/prisma";
 
@@ -18,6 +19,7 @@ const RANGE_DAYS: Record<Exclude<DashboardRange, "all">, number> = {
 export async function getDashboardData(
   userId: string,
   range: DashboardRange = "30",
+  model: AmortizationModel = "average",
 ) {
   const [categories, assets] = await Promise.all([
     prisma.category.findMany({
@@ -37,16 +39,19 @@ export async function getDashboardData(
     : today;
   const from =
     range === "all" ? earliestStart : addDays(today, -(RANGE_DAYS[range] - 1));
-  const series = buildHistoricalSeries(assets, { from, to: today, today });
-  const todayPoint =
+  const series = buildHistoricalSeries(assets, {
+    from,
+    to: today,
+    today,
+    model,
+  });
+  const todayPoint: HistoricalPoint =
     series.find((point) => point.date === today) ??
-    ({ date: today, totalCents: 0, categories: {} } as const);
+    { date: today, totalCents: 0, categories: {} };
   const yesterdayPoint = series.find((point) => point.date === addDays(today, -1));
-  const todayBreakdown = categoryBreakdownForDate(assets, today, today);
-
   const categoryBreakdown = categories
     .map((category) => {
-      const cents = todayBreakdown.get(category.id) ?? 0;
+      const cents = todayPoint.categories[category.id] ?? 0;
       return {
         id: category.id,
         name: category.name,
@@ -66,7 +71,7 @@ export async function getDashboardData(
       name: asset.name,
       categoryName: asset.category.name,
       categoryColor: asset.category.color,
-      dailyCostCents: calculateAssetAmortization(asset, today).dailyCostCents,
+      dailyCostCents: calculateDailyCostCents(asset, today, today, model),
     }))
     .sort((a, b) => Math.abs(b.dailyCostCents) - Math.abs(a.dailyCostCents))
     .slice(0, 8);

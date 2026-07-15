@@ -1,8 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const { prismaMock } = vi.hoisted(() => ({
+  prismaMock: { $transaction: vi.fn() },
+}));
+
+vi.mock("@/lib/prisma", () => ({ prisma: prismaMock }));
+
 import {
   assertBackupSize,
   backupCounts,
   DataTransferError,
+  importBackup,
   MAX_BACKUP_BYTES,
   parseBackup,
 } from "@/server/services/data-transfer";
@@ -43,7 +51,13 @@ function asset(id = "asset-1", userId?: string) {
   };
 }
 
-function user(id = "user-1", role: "admin" | "user" = "admin") {
+type AmortizationModel = "average" | "logarithmic";
+
+function user(
+  id = "user-1",
+  role: "admin" | "user" = "admin",
+  amortizationModel: AmortizationModel = "average",
+) {
   return {
     id,
     username: id,
@@ -51,35 +65,58 @@ function user(id = "user-1", role: "admin" | "user" = "admin") {
     name: id,
     role,
     isDisabled: false,
+    amortizationModel,
     createdAt: now,
     updatedAt: now,
   };
 }
 
-function personalBackup() {
+function personalBackup(amortizationModel: AmortizationModel = "logarithmic") {
   return {
     format: "amortized-data",
-    version: 1,
+    version: 2,
     scope: "user",
     exportedAt: now,
     data: {
-      user: { username: "alice", name: "Alice" },
+      user: { username: "alice", name: "Alice", amortizationModel },
       categories: [category()],
       assets: [asset()],
     },
   };
 }
 
-function systemBackup() {
+function systemBackup(amortizationModel: AmortizationModel = "logarithmic") {
   return {
     format: "amortized-data",
-    version: 1,
+    version: 2,
     scope: "system",
     exportedAt: now,
     data: {
-      users: [user()],
+      users: [user("user-1", "admin", amortizationModel)],
       categories: [category("category-1", "user-1")],
       assets: [asset("asset-1", "user-1")],
+    },
+  };
+}
+
+function legacyPersonalBackup() {
+  const backup = personalBackup();
+  const { amortizationModel: _model, ...legacyUser } = backup.data.user;
+  return {
+    ...backup,
+    version: 1,
+    data: { ...backup.data, user: legacyUser },
+  };
+}
+
+function legacySystemBackup() {
+  const backup = systemBackup();
+  return {
+    ...backup,
+    version: 1,
+    data: {
+      ...backup.data,
+      users: backup.data.users.map(({ amortizationModel: _model, ...item }) => item),
     },
   };
 }
@@ -89,18 +126,43 @@ function parse(input: unknown, scope: "user" | "system" = "user") {
 }
 
 describe("data transfer format", () => {
-  it("accepts personal and system backups and reports preview counts", () => {
-    expect(backupCounts(parse(personalBackup()))).toEqual({ categories: 1, assets: 1 });
-    expect(backupCounts(parse(systemBackup(), "system"))).toEqual({
+  beforeEach(() => {
+    prismaMock.$transaction.mockReset();
+  });
+
+  it("accepts v2 personal and system backups and preserves the model", () => {
+    const personal = parse(personalBackup());
+    expect(personal.scope).toBe("user");
+    if (personal.scope !== "user") throw new Error("expected personal backup");
+    expect(personal.data.user.amortizationModel).toBe("logarithmic");
+    expect(backupCounts(personal)).toEqual({ categories: 1, assets: 1 });
+
+    const system = parse(systemBackup(), "system");
+    expect(system.scope).toBe("system");
+    if (system.scope !== "system") throw new Error("expected system backup");
+    expect(system.data.users[0].amortizationModel).toBe("logarithmic");
+    expect(backupCounts(system)).toEqual({
       users: 1,
       categories: 1,
       assets: 1,
     });
   });
 
+  it("normalizes missing v1 models to average", () => {
+    const personal = parse(legacyPersonalBackup());
+    if (personal.scope !== "user") throw new Error("expected personal backup");
+    expect(personal.version).toBe(2);
+    expect(personal.data.user.amortizationModel).toBe("average");
+
+    const system = parse(legacySystemBackup(), "system");
+    if (system.scope !== "system") throw new Error("expected system backup");
+    expect(system.version).toBe(2);
+    expect(system.data.users[0].amortizationModel).toBe("average");
+  });
+
   it("rejects unsupported versions", () => {
-    expect(() => parse({ ...personalBackup(), version: 2 })).toThrow(
-      "不支持的备份版本：2",
+    expect(() => parse({ ...personalBackup(), version: 3 })).toThrow(
+      "不支持的备份版本：3",
     );
   });
 
@@ -133,6 +195,24 @@ describe("data transfer format", () => {
     const backup = systemBackup();
     backup.data.users[0].role = "user";
     expect(() => parse(backup, "system")).toThrow("至少包含一个启用的管理员");
+  });
+
+  it("updates the current user's model in a personal import transaction", async () => {
+    const tx = {
+      user: { update: vi.fn() },
+      asset: { deleteMany: vi.fn(), createMany: vi.fn() },
+      category: { deleteMany: vi.fn(), createMany: vi.fn() },
+    };
+    prismaMock.$transaction.mockImplementationOnce(
+      async (callback: (transaction: typeof tx) => Promise<unknown>) => callback(tx),
+    );
+
+    await importBackup(parse(personalBackup("logarithmic")), "target-user");
+
+    expect(tx.user.update).toHaveBeenCalledWith({
+      where: { id: "target-user" },
+      data: { amortizationModel: "logarithmic" },
+    });
   });
 
   it("rejects files larger than 50 MiB", () => {

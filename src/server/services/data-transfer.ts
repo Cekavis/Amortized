@@ -10,22 +10,26 @@ const idSchema = z.string().min(1);
 const textSchema = z.string().min(1);
 const timestampSchema = z.string().datetime();
 const moneySchema = z.number().int().min(0).max(2_147_483_647);
+const amortizationModelSchema = z.enum(["average", "logarithmic"]);
 const dateKeySchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/)
   .refine((value) => toDateKey(parseDateKey(value)) === value, "日期无效");
 
+const userFields = {
+  id: idSchema,
+  username: textSchema,
+  passwordHash: textSchema,
+  name: textSchema,
+  role: z.enum(["admin", "user"]),
+  isDisabled: z.boolean(),
+  createdAt: timestampSchema,
+  updatedAt: timestampSchema,
+};
+
+const legacyUserSchema = z.object(userFields).strict();
 const userSchema = z
-  .object({
-    id: idSchema,
-    username: textSchema,
-    passwordHash: textSchema,
-    name: textSchema,
-    role: z.enum(["admin", "user"]),
-    isDisabled: z.boolean(),
-    createdAt: timestampSchema,
-    updatedAt: timestampSchema,
-  })
+  .object({ ...userFields, amortizationModel: amortizationModelSchema })
   .strict();
 
 const categoryFields = {
@@ -64,19 +68,28 @@ const assetFields = {
 const personalAssetSchema = z.object(assetFields).strict();
 const systemAssetSchema = z.object({ ...assetFields, userId: idSchema }).strict();
 
-const backupHeader = {
+const backupHeaderFields = {
   format: z.literal("amortized-data"),
-  version: z.literal(1),
   exportedAt: timestampSchema,
 };
 
+const personalUserFields = { username: textSchema, name: textSchema };
+const legacyPersonalUserSchema = z.object(personalUserFields).strict();
+const personalUserSchema = z
+  .object({
+    ...personalUserFields,
+    amortizationModel: amortizationModelSchema,
+  })
+  .strict();
+
 const personalBackupSchema = z
   .object({
-    ...backupHeader,
+    ...backupHeaderFields,
+    version: z.literal(2),
     scope: z.literal("user"),
     data: z
       .object({
-        user: z.object({ username: textSchema, name: textSchema }).strict(),
+        user: personalUserSchema,
         categories: z.array(personalCategorySchema),
         assets: z.array(personalAssetSchema),
       })
@@ -86,7 +99,8 @@ const personalBackupSchema = z
 
 const systemBackupSchema = z
   .object({
-    ...backupHeader,
+    ...backupHeaderFields,
+    version: z.literal(2),
     scope: z.literal("system"),
     data: z
       .object({
@@ -103,8 +117,45 @@ const backupSchema = z.discriminatedUnion("scope", [
   systemBackupSchema,
 ]);
 
+const legacyPersonalBackupSchema = z
+  .object({
+    ...backupHeaderFields,
+    version: z.literal(1),
+    scope: z.literal("user"),
+    data: z
+      .object({
+        user: legacyPersonalUserSchema,
+        categories: z.array(personalCategorySchema),
+        assets: z.array(personalAssetSchema),
+      })
+      .strict(),
+  })
+  .strict();
+
+const legacySystemBackupSchema = z
+  .object({
+    ...backupHeaderFields,
+    version: z.literal(1),
+    scope: z.literal("system"),
+    data: z
+      .object({
+        users: z.array(legacyUserSchema).min(1),
+        categories: z.array(systemCategorySchema),
+        assets: z.array(systemAssetSchema),
+      })
+      .strict(),
+  })
+  .strict();
+
+const legacyBackupSchema = z.discriminatedUnion("scope", [
+  legacyPersonalBackupSchema,
+  legacySystemBackupSchema,
+]);
+
 export type BackupScope = "user" | "system";
 export type Backup = z.infer<typeof backupSchema>;
+type LegacyBackup = z.infer<typeof legacyBackupSchema>;
+type AmortizationModel = z.infer<typeof amortizationModelSchema>;
 export type BackupCounts = {
   users?: number;
   categories: number;
@@ -189,6 +240,31 @@ function validateRelations(backup: Backup) {
   assertAssetDates(backup.data.assets);
 }
 
+function normalizeLegacyBackup(backup: LegacyBackup): Backup {
+  if (backup.scope === "user") {
+    return {
+      ...backup,
+      version: 2,
+      data: {
+        ...backup.data,
+        user: { ...backup.data.user, amortizationModel: "average" },
+      },
+    };
+  }
+
+  return {
+    ...backup,
+    version: 2,
+    data: {
+      ...backup.data,
+      users: backup.data.users.map((user) => ({
+        ...user,
+        amortizationModel: "average" as const,
+      })),
+    },
+  };
+}
+
 export function parseBackup(raw: string, expectedScope?: BackupScope): Backup {
   assertBackupSize(Buffer.byteLength(raw));
 
@@ -203,23 +279,31 @@ export function parseBackup(raw: string, expectedScope?: BackupScope): Backup {
     typeof input === "object" &&
     input !== null &&
     "version" in input &&
-    input.version !== 1
+    input.version !== 1 &&
+    input.version !== 2
   ) {
     throw new DataTransferError(`不支持的备份版本：${String(input.version)}`);
   }
 
-  const parsed = backupSchema.safeParse(input);
+  const parsed =
+    typeof input === "object" &&
+    input !== null &&
+    "version" in input &&
+    input.version === 1
+      ? legacyBackupSchema.safeParse(input)
+      : backupSchema.safeParse(input);
   if (!parsed.success) {
     throw new DataTransferError(`备份文件格式不正确：${firstIssue(parsed.error)}`);
   }
-  if (expectedScope && parsed.data.scope !== expectedScope) {
+  const backup = parsed.data.version === 1 ? normalizeLegacyBackup(parsed.data) : parsed.data;
+  if (expectedScope && backup.scope !== expectedScope) {
     throw new DataTransferError(
       expectedScope === "user" ? "请选择个人数据备份" : "请选择整站数据备份",
     );
   }
 
-  validateRelations(parsed.data);
-  return parsed.data;
+  validateRelations(backup);
+  return backup;
 }
 
 export function backupCounts(backup: Backup): BackupCounts {
@@ -296,7 +380,12 @@ function exportedAsset(asset: {
 
 export async function exportBackup(
   scope: BackupScope,
-  actor: { id: string; username: string; name: string },
+  actor: {
+    id: string;
+    username: string;
+    name: string;
+    amortizationModel: AmortizationModel;
+  },
 ) {
   const exportedAt = new Date().toISOString();
 
@@ -313,11 +402,15 @@ export async function exportBackup(
     ]);
     return personalBackupSchema.parse({
       format: "amortized-data",
-      version: 1,
+      version: 2,
       scope,
       exportedAt,
       data: {
-        user: { username: actor.username, name: actor.name },
+        user: {
+          username: actor.username,
+          name: actor.name,
+          amortizationModel: actor.amortizationModel,
+        },
         categories: categories.map(exportedCategory),
         assets: assets.map(exportedAsset),
       },
@@ -340,7 +433,7 @@ export async function exportBackup(
   ]);
   return systemBackupSchema.parse({
     format: "amortized-data",
-    version: 1,
+    version: 2,
     scope,
     exportedAt,
     data: {
@@ -428,6 +521,10 @@ export async function importBackup(backup: Backup, userId: string) {
 
     await prisma.$transaction(
       async (tx) => {
+        await tx.user.update({
+          where: { id: userId },
+          data: { amortizationModel: backup.data.user.amortizationModel },
+        });
         await tx.asset.deleteMany({ where: { userId } });
         await tx.category.deleteMany({ where: { userId } });
         if (categories.length) await tx.category.createMany({ data: categories });

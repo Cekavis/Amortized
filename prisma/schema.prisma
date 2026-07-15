@@ -12,17 +12,23 @@ enum Role {
   user
 }
 
+enum AmortizationModel {
+  average
+  logarithmic
+}
+
 model User {
-  id           String     @id @default(cuid())
-  username     String     @unique
-  passwordHash String
-  name         String
-  role         Role       @default(user)
-  isDisabled   Boolean    @default(false)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  categories   Category[]
-  assets       Asset[]
+  id                String            @id @default(cuid())
+  username          String            @unique
+  passwordHash      String
+  name              String
+  role              Role              @default(user)
+  amortizationModel AmortizationModel @default(average)
+  isDisabled        Boolean           @default(false)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  categories        Category[]
+  assets            Asset[]
 
   @@map("users")
 }

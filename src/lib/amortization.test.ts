@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   buildHistoricalSeries,
   calculateAssetAmortization,
+  calculateDailyCostCents,
   categoryBreakdownForDate,
+  dailyCostForDate,
 } from "@/lib/amortization";
 import { inclusiveDays } from "@/lib/date";
 
@@ -117,6 +119,166 @@ describe("amortization calculations", () => {
     );
 
     expect(series.map((point) => point.totalCents)).toEqual([2000, 2000, 2000]);
+  });
+
+  it("distributes net cost with logarithmic decay", () => {
+    const amortization = calculateAssetAmortization(
+      {
+        id: "a1",
+        name: "电脑",
+        categoryId: "c1",
+        priceCents: 60000,
+        startDate: "2026-07-01",
+        endDate: "2026-07-03",
+      },
+      "2026-07-10",
+      "logarithmic",
+    );
+    const costs = ["2026-07-01", "2026-07-02", "2026-07-03"].map((date) =>
+      dailyCostForDate(amortization, date),
+    );
+
+    expect(costs[0]).toBeCloseTo(27956.166430490204, 8);
+    expect(costs[1]).toBeCloseTo(18722.570475109133, 8);
+    expect(costs[2]).toBeCloseTo(13321.263094400665, 8);
+    expect(costs[0]).toBeGreaterThan(costs[1]);
+    expect(costs[1]).toBeGreaterThan(costs[2]);
+    expect(costs.reduce((sum, cost) => sum + cost, 0)).toBeCloseTo(60000, 8);
+  });
+
+  it("does not renormalize logarithmic costs to the chart window", () => {
+    const series = buildHistoricalSeries(
+      [
+        {
+          id: "a1",
+          name: "电脑",
+          categoryId: "c1",
+          priceCents: 60000,
+          startDate: "2026-07-01",
+          endDate: "2026-07-03",
+        },
+      ],
+      {
+        from: "2026-07-02",
+        to: "2026-07-03",
+        today: "2026-07-10",
+        model: "logarithmic",
+      },
+    );
+
+    expect(series[0].totalCents).toBeCloseTo(18722.570475109133, 8);
+    expect(series[1].totalCents).toBeCloseTo(13321.263094400665, 8);
+  });
+
+  it("recalculates active history as today advances", () => {
+    const asset = {
+      id: "a1",
+      name: "手机",
+      categoryId: "c1",
+      priceCents: 60000,
+      startDate: "2026-07-01",
+      endDate: null,
+    };
+    const first = buildHistoricalSeries([asset], {
+      from: "2026-07-01",
+      to: "2026-07-03",
+      today: "2026-07-03",
+      model: "logarithmic",
+    });
+    const next = buildHistoricalSeries([asset], {
+      from: "2026-07-01",
+      to: "2026-07-04",
+      today: "2026-07-04",
+      model: "logarithmic",
+    });
+
+    expect(next[0].totalCents).not.toBeCloseTo(first[0].totalCents, 8);
+    expect(first.reduce((sum, point) => sum + point.totalCents, 0)).toBeCloseTo(
+      60000,
+      8,
+    );
+    expect(next.reduce((sum, point) => sum + point.totalCents, 0)).toBeCloseTo(
+      60000,
+      8,
+    );
+  });
+
+  it("keeps ended logarithmic history stable as today advances", () => {
+    const asset = {
+      id: "a1",
+      name: "手机",
+      categoryId: "c1",
+      priceCents: 60000,
+      startDate: "2026-07-01",
+      endDate: "2026-07-03",
+    };
+    const build = (today: string) =>
+      buildHistoricalSeries([asset], {
+        from: "2026-07-01",
+        to: "2026-07-03",
+        today,
+        model: "logarithmic",
+      }).map((point) => point.totalCents);
+
+    expect(build("2026-07-10")).toEqual(build("2026-07-20"));
+  });
+
+  it("handles logarithmic edge cases and out-of-range dates", () => {
+    const sameDay = {
+      id: "a1",
+      name: "相机",
+      categoryId: "c1",
+      priceCents: 120000,
+      startDate: "2026-07-01",
+      endDate: "2026-07-01",
+    };
+    const negative = {
+      ...sameDay,
+      priceCents: 50000,
+      soldPriceCents: 65000,
+      endDate: "2026-07-03",
+    };
+
+    expect(
+      calculateDailyCostCents(
+        sameDay,
+        "2026-07-01",
+        "2026-07-10",
+        "logarithmic",
+      ),
+    ).toBe(120000);
+    expect(
+      calculateDailyCostCents(
+        { ...sameDay, priceCents: 0 },
+        "2026-07-01",
+        "2026-07-10",
+        "logarithmic",
+      ),
+    ).toBe(0);
+    expect(
+      calculateDailyCostCents(
+        negative,
+        "2026-07-01",
+        "2026-07-10",
+        "logarithmic",
+      ),
+    ).toBeLessThan(0);
+    expect(
+      calculateDailyCostCents(
+        sameDay,
+        "2026-06-30",
+        "2026-07-10",
+        "logarithmic",
+      ),
+    ).toBe(0);
+    expect(
+      calculateDailyCostCents(
+        { ...sameDay, startDate: "2026-07-20", endDate: null },
+        "2026-07-10",
+        "2026-07-10",
+        "logarithmic",
+      ),
+    ).toBe(0);
   });
 
   it("aggregates categories for a date", () => {

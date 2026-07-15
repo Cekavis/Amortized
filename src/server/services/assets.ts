@@ -1,5 +1,9 @@
 import type { Prisma } from "@prisma/client";
-import { calculateAssetAmortization } from "@/lib/amortization";
+import {
+  calculateDailyCostCents,
+  type AmortizationModel,
+} from "@/lib/amortization";
+import { todayInTimeZone } from "@/lib/date";
 import { prisma } from "@/lib/prisma";
 import { ensureCategoryBelongsToUser } from "@/server/services/categories";
 
@@ -51,6 +55,7 @@ export async function listAssets(
     categoryId?: string;
     status?: AssetStatusFilter;
     sort?: AssetSort;
+    model?: AmortizationModel;
   } = {},
 ) {
   const where: Prisma.AssetWhereInput = {
@@ -81,9 +86,20 @@ export async function listAssets(
   });
 
   if (filters.sort === "dailyCost") {
+    const today = todayInTimeZone();
     return assets.sort((a, b) => {
-      const costA = calculateAssetAmortization(a).dailyCostCents;
-      const costB = calculateAssetAmortization(b).dailyCostCents;
+      const costA = calculateDailyCostCents(
+        a,
+        a.endDate ?? today,
+        today,
+        filters.model,
+      );
+      const costB = calculateDailyCostCents(
+        b,
+        b.endDate ?? today,
+        today,
+        filters.model,
+      );
       return costB - costA;
     });
   }

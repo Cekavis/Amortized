@@ -21,8 +21,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { calculateAssetAmortization } from "@/lib/amortization";
-import { toDateKey } from "@/lib/date";
+import { calculateDailyCostCents } from "@/lib/amortization";
+import { todayInTimeZone, toDateKey } from "@/lib/date";
 import { formatCny } from "@/lib/money";
 import {
   createAssetAction,
@@ -47,8 +47,12 @@ export default async function AssetsPage({
       categoryId: single(searchParams.categoryId),
       status: parseStatus(searchParams.status),
       sort: parseSort(searchParams.sort),
+      model: user.amortizationModel,
     }),
   ]);
+  const today = todayInTimeZone();
+  const modelLabel =
+    user.amortizationModel === "logarithmic" ? "对数递减分摊" : "平均分摊";
 
   const categoryOptions = categories.map((category) => ({
     id: category.id,
@@ -61,7 +65,7 @@ export default async function AssetsPage({
         <div>
           <h1 className="text-2xl font-semibold">资产</h1>
           <p className="text-sm text-muted-foreground">
-            创建、编辑、筛选和排序你的资产，所有计算都按当前净成本回填。
+            创建、编辑、筛选和排序你的资产，当前使用{modelLabel}。
           </p>
         </div>
         <Button asChild variant="outline">
@@ -104,7 +108,7 @@ export default async function AssetsPage({
       <Card>
         <CardHeader>
           <CardTitle>资产列表</CardTitle>
-          <CardDescription>支持按分类、状态过滤，并按日期、价格、每日成本或名称排序。</CardDescription>
+          <CardDescription>支持按分类、状态过滤，并按日期、价格、当日分摊或名称排序。</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
           <form className="grid gap-3 rounded-lg border bg-background p-3 md:grid-cols-4 md:items-end">
@@ -147,7 +151,7 @@ export default async function AssetsPage({
               >
                 <option value="startDate">开始日期</option>
                 <option value="price">购买价格</option>
-                <option value="dailyCost">每日成本</option>
+                <option value="dailyCost">当日分摊</option>
                 <option value="name">名称</option>
               </select>
             </div>
@@ -165,13 +169,18 @@ export default async function AssetsPage({
                   <TableHead>购买价</TableHead>
                   <TableHead>使用期</TableHead>
                   <TableHead>出售</TableHead>
-                  <TableHead>每日成本</TableHead>
+                  <TableHead>当前/结束日分摊</TableHead>
                   <TableHead className="w-[420px]">操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {assets.map((asset) => {
-                  const amortization = calculateAssetAmortization(asset);
+                  const dailyCostCents = calculateDailyCostCents(
+                    asset,
+                    asset.endDate ?? today,
+                    today,
+                    user.amortizationModel,
+                  );
                   return (
                     <TableRow key={asset.id}>
                       <TableCell>
@@ -207,7 +216,7 @@ export default async function AssetsPage({
                           ? "未填写"
                           : formatCny(asset.soldPriceCents)}
                       </TableCell>
-                      <TableCell>{formatCny(amortization.dailyCostCents)}</TableCell>
+                      <TableCell>{formatCny(dailyCostCents)}</TableCell>
                       <TableCell>
                         <div className="grid gap-2">
                           <InlineDetails title="编辑">
