@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  averageHistoricalSeries,
   buildHistoricalSeries,
   calculateAssetAmortization,
   calculateDailyCostCents,
   categoryBreakdownForDate,
   dailyCostForDate,
+  type HistoricalPoint,
 } from "@/lib/amortization";
 import { inclusiveDays } from "@/lib/date";
 
@@ -221,6 +223,35 @@ describe("amortization calculations", () => {
       }).map((point) => point.totalCents);
 
     expect(build("2026-07-10")).toEqual(build("2026-07-20"));
+  });
+
+  it("averages historical values by calendar week or month", () => {
+    const series: HistoricalPoint[] = [
+      { date: "2026-01-31", totalCents: 100, categories: { c1: 100 } },
+      {
+        date: "2026-02-01",
+        totalCents: 300,
+        categories: { c1: 100, c2: 200 },
+      },
+      { date: "2026-02-02", totalCents: 500, categories: { c2: 500 } },
+    ];
+
+    expect(averageHistoricalSeries(series, "week")).toEqual([
+      {
+        date: "2026-01-26",
+        totalCents: 200,
+        categories: { c1: 100, c2: 100 },
+      },
+      { date: "2026-02-02", totalCents: 500, categories: { c2: 500 } },
+    ]);
+    expect(averageHistoricalSeries(series, "month")).toEqual([
+      { date: "2026-01-01", totalCents: 100, categories: { c1: 100 } },
+      {
+        date: "2026-02-01",
+        totalCents: 400,
+        categories: { c1: 50, c2: 350 },
+      },
+    ]);
   });
 
   it("handles logarithmic edge cases and out-of-range dates", () => {

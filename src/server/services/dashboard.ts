@@ -1,5 +1,6 @@
 import { addDays, todayInTimeZone, toDateKey } from "@/lib/date";
 import {
+  averageHistoricalSeries,
   buildHistoricalSeries,
   calculateDailyCostCents,
   isAssetActiveOnDate,
@@ -76,7 +77,18 @@ export async function getDashboardData(
     .sort((a, b) => Math.abs(b.dailyCostCents) - Math.abs(a.dailyCostCents))
     .slice(0, 8);
 
-  const chartData = series.map((point) => {
+  let chartSeries = series;
+  let chartPeriod: "day" | "week" | "month" = "day";
+  if (range === "365" || range === "all") {
+    chartSeries = averageHistoricalSeries(series, "week");
+    chartPeriod = "week";
+    if (chartSeries.length > 90) {
+      chartSeries = averageHistoricalSeries(series, "month");
+      chartPeriod = "month";
+    }
+  }
+
+  const chartData = chartSeries.map((point) => {
     const row: Record<string, string | number> = {
       date: point.date,
       total: Number((point.totalCents / 100).toFixed(2)),
@@ -92,6 +104,8 @@ export async function getDashboardData(
   return {
     categories,
     chartData,
+    chartPeriod,
+    chartYearsOnly: series.length > 365,
     today,
     todayTotalCents: todayPoint.totalCents,
     yesterdayTotalCents: yesterdayPoint?.totalCents ?? 0,

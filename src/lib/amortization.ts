@@ -1,7 +1,9 @@
 import {
+  addDays,
   compareDateKey,
   eachDateKey,
   inclusiveDays,
+  parseDateKey,
   todayInTimeZone,
   toDateKey,
   type DateInput,
@@ -173,6 +175,47 @@ export function buildHistoricalSeries(
   }
 
   return Array.from(points.values());
+}
+
+export function averageHistoricalSeries(
+  series: HistoricalPoint[],
+  period: "week" | "month",
+) {
+  const buckets = new Map<
+    string,
+    { days: number; totalCents: number; categories: Record<string, number> }
+  >();
+
+  for (const point of series) {
+    const day = parseDateKey(point.date).getUTCDay();
+    const date =
+      period === "month"
+        ? `${point.date.slice(0, 7)}-01`
+        : addDays(point.date, -((day + 6) % 7));
+    const bucket = buckets.get(date) ?? {
+      days: 0,
+      totalCents: 0,
+      categories: {},
+    };
+    bucket.days += 1;
+    bucket.totalCents += point.totalCents;
+    for (const [categoryId, cents] of Object.entries(point.categories)) {
+      bucket.categories[categoryId] =
+        (bucket.categories[categoryId] ?? 0) + cents;
+    }
+    buckets.set(date, bucket);
+  }
+
+  return Array.from(buckets, ([date, bucket]) => ({
+    date,
+    totalCents: bucket.totalCents / bucket.days,
+    categories: Object.fromEntries(
+      Object.entries(bucket.categories).map(([categoryId, cents]) => [
+        categoryId,
+        cents / bucket.days,
+      ]),
+    ),
+  }));
 }
 
 export function categoryBreakdownForDate(

@@ -162,7 +162,12 @@ export default async function DashboardPage({
         </Card>
       ) : (
         <>
-          <DashboardCharts data={data.chartData} categories={data.categories} />
+          <DashboardCharts
+            data={data.chartData}
+            categories={data.categories}
+            period={data.chartPeriod}
+            yearsOnly={data.chartYearsOnly}
+          />
 
           <div className="grid gap-6 xl:grid-cols-[1fr_1.2fr]">
             <Card>
