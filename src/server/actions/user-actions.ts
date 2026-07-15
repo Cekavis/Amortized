@@ -10,7 +10,7 @@ import {
 } from "@/lib/validation";
 import { pathWithMessage } from "@/server/actions/redirect";
 import { requireAdminUser } from "@/server/current-user";
-import { createUser, updateUserRole } from "@/server/services/users";
+import { createUser, deleteUser, updateUserRole } from "@/server/services/users";
 
 const USERS_PATH = "/admin/users";
 
@@ -60,4 +60,28 @@ export async function updateUserRoleAction(formData: FormData) {
 
   revalidatePath(USERS_PATH);
   redirect(pathWithMessage(USERS_PATH, "success", "角色已更新"));
+}
+
+export async function deleteUserAction(formData: FormData) {
+  const actor = await requireAdminUser();
+  const userId = String(formData.get("userId") ?? "");
+
+  if (!userId) {
+    redirect(pathWithMessage(USERS_PATH, "error", "缺少用户 ID"));
+  }
+
+  try {
+    await deleteUser({ actorId: actor.id, userId });
+  } catch (error) {
+    redirect(
+      pathWithMessage(
+        USERS_PATH,
+        "error",
+        error instanceof Error ? error.message : "删除用户失败",
+      ),
+    );
+  }
+
+  revalidatePath(USERS_PATH);
+  redirect(pathWithMessage(USERS_PATH, "success", "用户及其数据已删除"));
 }
