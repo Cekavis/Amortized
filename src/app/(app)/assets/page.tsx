@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -58,12 +57,7 @@ export default async function AssetsPage({
   return (
     <div className="page-shell">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">资产</h1>
-          <p className="text-sm text-muted-foreground">
-            创建、编辑、筛选和排序你的资产，所有计算都按当前净成本回填。
-          </p>
-        </div>
+        <h1 className="text-2xl font-semibold">资产</h1>
         <Button asChild variant="outline">
           <Link href="/categories">管理分类</Link>
         </Button>
@@ -74,7 +68,6 @@ export default async function AssetsPage({
         <Card>
           <CardHeader>
             <CardTitle>先创建分类</CardTitle>
-            <CardDescription>每个资产必须归属于一个分类。</CardDescription>
           </CardHeader>
           <CardContent>
             <Button asChild>
@@ -89,7 +82,6 @@ export default async function AssetsPage({
               <PlusCircle className="h-5 w-5 text-primary" />
               新建资产
             </CardTitle>
-            <CardDescription>金额以人民币填写，最多两位小数。</CardDescription>
           </CardHeader>
           <CardContent>
             <AssetForm
@@ -104,7 +96,6 @@ export default async function AssetsPage({
       <Card>
         <CardHeader>
           <CardTitle>资产列表</CardTitle>
-          <CardDescription>支持按分类、状态过滤，并按日期、价格、每日成本或名称排序。</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
           <form className="grid gap-3 rounded-lg border bg-background p-3 md:grid-cols-4 md:items-end">

@@ -5,7 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -38,12 +37,7 @@ export default async function UsersPage({
 
   return (
     <div className="page-shell">
-      <div>
-        <h1 className="text-2xl font-semibold">用户管理</h1>
-        <p className="text-sm text-muted-foreground">
-          管理员只负责账号和角色，不显示其他用户的资产明细。
-        </p>
-      </div>
+      <h1 className="text-2xl font-semibold">用户管理</h1>
       <ActionMessage searchParams={searchParams} />
       <Card>
         <CardHeader>
@@ -51,7 +45,6 @@ export default async function UsersPage({
             <UserPlus className="h-5 w-5 text-primary" />
             创建用户
           </CardTitle>
-          <CardDescription>v1 不发送邮件，管理员直接设置初始密码。</CardDescription>
         </CardHeader>
         <CardContent>
           <form action={createUserAction} className="grid gap-4 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_140px_auto] xl:items-end">
@@ -93,7 +86,6 @@ export default async function UsersPage({
       <Card>
         <CardHeader>
           <CardTitle>用户列表</CardTitle>
-          <CardDescription>为了安全，不能在这里修改自己的角色。</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>

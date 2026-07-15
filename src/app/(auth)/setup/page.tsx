@@ -4,7 +4,6 @@ import { SubmitButton } from "@/components/submit-button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -27,11 +26,6 @@ export default async function SetupPage({
       <Card>
         <CardHeader>
           <CardTitle>{locked ? "初始化已完成" : "创建首个管理员"}</CardTitle>
-          <CardDescription>
-            {locked
-              ? "数据库中已经存在用户，公开注册保持关闭。"
-              : "首次启动时创建管理员。之后新增用户只能由管理员完成。"}
-          </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
           <ActionMessage searchParams={searchParams} />
