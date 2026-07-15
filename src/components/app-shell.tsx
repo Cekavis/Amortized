@@ -3,6 +3,7 @@
 import {
   BarChart3,
   Boxes,
+  DatabaseBackup,
   FolderKanban,
   LayoutDashboard,
   Users,
@@ -28,6 +29,7 @@ export function AppShell({
     { href: "/dashboard", label: "仪表盘", icon: LayoutDashboard },
     { href: "/assets", label: "资产", icon: Boxes },
     { href: "/categories", label: "分类", icon: FolderKanban },
+    { href: "/data", label: "数据管理", icon: DatabaseBackup },
   ];
 
   if (user.role === "admin") {

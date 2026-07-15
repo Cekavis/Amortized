@@ -657,7 +657,6 @@ Do not implement these unless the user explicitly expands scope:
 - OAuth login.
 - Email delivery.
 - Native iOS or Android apps.
-- Import/export.
 - Receipt OCR.
 - Attachment storage beyond simple placeholders.
 - Category history.
