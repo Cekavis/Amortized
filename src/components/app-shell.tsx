@@ -43,10 +43,7 @@ export function AppShell({
           <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
             <BarChart3 className="h-5 w-5" />
           </div>
-          <div>
-            <p className="text-sm font-semibold">Amortized</p>
-            <p className="text-xs text-muted-foreground">资产摊销</p>
-          </div>
+          <p className="text-sm font-semibold">Amortized</p>
         </div>
         <nav className="grid gap-1 p-3">
           {navItems.map((item) => (

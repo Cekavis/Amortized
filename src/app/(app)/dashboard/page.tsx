@@ -40,12 +40,7 @@ export default async function DashboardPage({
   return (
     <div className="page-shell">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">仪表盘</h1>
-          <p className="text-sm text-muted-foreground">
-            今天是 {data.today}，所有统计只包含你的资产。
-          </p>
-        </div>
+        <h1 className="text-2xl font-semibold">仪表盘</h1>
         <div className="flex flex-col gap-2 md:items-end">
           <form
             action={updateAmortizationModelAction}
@@ -202,7 +197,6 @@ export default async function DashboardPage({
             <Card>
               <CardHeader>
                 <CardTitle>当前活跃资产</CardTitle>
-                <CardDescription>按今日每日摊销绝对值排序。</CardDescription>
               </CardHeader>
               <CardContent className="grid gap-3">
                 {data.assetCosts.map((asset) => (

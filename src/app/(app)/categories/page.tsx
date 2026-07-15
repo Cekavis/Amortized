@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -38,12 +37,7 @@ export default async function CategoriesPage({
 
   return (
     <div className="page-shell">
-      <div>
-        <h1 className="text-2xl font-semibold">分类</h1>
-        <p className="text-sm text-muted-foreground">
-          每个分类只属于当前用户，分类名在你的账号内保持唯一。
-        </p>
-      </div>
+      <h1 className="text-2xl font-semibold">分类</h1>
       <ActionMessage searchParams={searchParams} />
       <Card>
         <CardHeader>
@@ -51,7 +45,6 @@ export default async function CategoriesPage({
             <FolderPlus className="h-5 w-5 text-primary" />
             新建分类
           </CardTitle>
-          <CardDescription>选择一个颜色，仪表盘会用它绘制分类图表。</CardDescription>
         </CardHeader>
         <CardContent>
           <CategoryForm action={createCategoryAction} submitLabel="创建" />
@@ -60,7 +53,6 @@ export default async function CategoriesPage({
       <Card>
         <CardHeader>
           <CardTitle>分类列表</CardTitle>
-          <CardDescription>有资产的分类不能直接删除。</CardDescription>
         </CardHeader>
         <CardContent>
           {categories.length === 0 ? (

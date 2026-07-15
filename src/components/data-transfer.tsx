@@ -171,7 +171,6 @@ function DataTransferPanel({ scope }: { scope: Scope }) {
             )}
             导出{system ? "整站" : "个人"}备份
           </Button>
-          <span className="text-xs text-muted-foreground">版本化 JSON，最大 50 MiB</span>
         </div>
 
         <div className="field-grid">
