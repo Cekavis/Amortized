@@ -13,6 +13,7 @@ import { pathWithMessage } from "@/server/actions/redirect";
 import { requireAdminUser, requireCurrentUser } from "@/server/current-user";
 import {
   createUser,
+  deleteUser,
   updateAmortizationModel,
   updateUserRole,
 } from "@/server/services/users";
@@ -103,4 +104,28 @@ export async function updateAmortizationModelAction(formData: FormData) {
   revalidatePath("/dashboard");
   revalidatePath("/assets");
   redirect(dashboardPath);
+}
+
+export async function deleteUserAction(formData: FormData) {
+  const actor = await requireAdminUser();
+  const userId = String(formData.get("userId") ?? "");
+
+  if (!userId) {
+    redirect(pathWithMessage(USERS_PATH, "error", "缺少用户 ID"));
+  }
+
+  try {
+    await deleteUser({ actorId: actor.id, userId });
+  } catch (error) {
+    redirect(
+      pathWithMessage(
+        USERS_PATH,
+        "error",
+        error instanceof Error ? error.message : "删除用户失败",
+      ),
+    );
+  }
+
+  revalidatePath(USERS_PATH);
+  redirect(pathWithMessage(USERS_PATH, "success", "用户及其数据已删除"));
 }

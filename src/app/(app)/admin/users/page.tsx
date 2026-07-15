@@ -1,5 +1,6 @@
 import { UserPlus } from "lucide-react";
 import { ActionMessage } from "@/components/action-message";
+import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { SubmitButton } from "@/components/submit-button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -21,6 +22,7 @@ import {
 } from "@/components/ui/table";
 import {
   createUserAction,
+  deleteUserAction,
   updateUserRoleAction,
 } from "@/server/actions/user-actions";
 import { requireAdminUser } from "@/server/current-user";
@@ -93,7 +95,9 @@ export default async function UsersPage({
       <Card>
         <CardHeader>
           <CardTitle>用户列表</CardTitle>
-          <CardDescription>为了安全，不能在这里修改自己的角色。</CardDescription>
+          <CardDescription>
+            不能修改或删除自己的账号；删除用户会同时永久删除其全部数据。
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -102,7 +106,7 @@ export default async function UsersPage({
                 <TableHead>用户</TableHead>
                 <TableHead>角色</TableHead>
                 <TableHead>数据概览</TableHead>
-                <TableHead className="w-[260px]">设置角色</TableHead>
+                <TableHead className="w-[360px]">操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -123,25 +127,34 @@ export default async function UsersPage({
                     {user._count.categories} 个分类 / {user._count.assets} 个资产
                   </TableCell>
                   <TableCell>
-                    <form action={updateUserRoleAction} className="flex gap-2">
-                      <input type="hidden" name="userId" value={user.id} />
-                      <select
-                        name="role"
-                        defaultValue={user.role}
-                        disabled={user.id === actor.id}
-                        className="h-9 rounded-md border border-input bg-background px-2 text-sm"
-                      >
-                        <option value="user">普通用户</option>
-                        <option value="admin">管理员</option>
-                      </select>
-                      <SubmitButton
-                        size="sm"
-                        variant="outline"
-                        disabled={user.id === actor.id}
-                      >
-                        保存
-                      </SubmitButton>
-                    </form>
+                    <div className="flex gap-2">
+                      <form action={updateUserRoleAction} className="flex gap-2">
+                        <input type="hidden" name="userId" value={user.id} />
+                        <select
+                          name="role"
+                          defaultValue={user.role}
+                          disabled={user.id === actor.id}
+                          className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                        >
+                          <option value="user">普通用户</option>
+                          <option value="admin">管理员</option>
+                        </select>
+                        <SubmitButton
+                          size="sm"
+                          variant="outline"
+                          disabled={user.id === actor.id}
+                        >
+                          保存
+                        </SubmitButton>
+                      </form>
+                      <form action={deleteUserAction}>
+                        <input type="hidden" name="userId" value={user.id} />
+                        <ConfirmSubmitButton
+                          disabled={user.id === actor.id}
+                          message={`确认永久删除用户「${user.name}」及其 ${user._count.categories} 个分类、${user._count.assets} 个资产？`}
+                        />
+                      </form>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

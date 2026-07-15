@@ -112,3 +112,21 @@ export async function updateAmortizationModel(
     data: { amortizationModel },
   });
 }
+
+export async function deleteUser(input: { actorId: string; userId: string }) {
+  if (input.actorId === input.userId) {
+    throw new Error("不能删除自己的账号");
+  }
+
+  try {
+    return await prisma.user.delete({ where: { id: input.userId } });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2025"
+    ) {
+      throw new Error("用户不存在");
+    }
+    throw error;
+  }
+}
