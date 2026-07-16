@@ -21,11 +21,13 @@ type Category = {
 
 export function DashboardCharts({
   data,
+  cumulativeSpendData,
   categories,
   period,
   yearsOnly,
 }: {
   data: Record<string, string | number>[];
+  cumulativeSpendData: { date: string; total: number }[];
   categories: Category[];
   period: "day" | "week" | "month";
   yearsOnly: boolean;
@@ -119,6 +121,42 @@ export function DashboardCharts({
                 />
               ))}
             </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+      <div className="surface p-5 xl:col-span-2">
+        <h2 className="mb-4 text-base font-semibold">累计总花费</h2>
+        <div className="h-72">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={cumulativeSpendData}>
+              <defs>
+                <linearGradient
+                  id="cumulativeSpend"
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="1"
+                >
+                  <stop offset="5%" stopColor="#2563eb" stopOpacity={0.4} />
+                  <stop offset="95%" stopColor="#2563eb" stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" opacity={0.18} />
+              <XAxis {...xAxis} />
+              <YAxis tickFormatter={(value) => `¥${value}`} width={58} />
+              <Tooltip
+                formatter={(value) => formatCny(Number(value) * 100)}
+                labelFormatter={(value) => `日期 ${value}`}
+              />
+              <Area
+                type="stepAfter"
+                dataKey="total"
+                stroke="#2563eb"
+                strokeWidth={2}
+                fill="url(#cumulativeSpend)"
+                name="累计总花费"
+              />
+            </AreaChart>
           </ResponsiveContainer>
         </div>
       </div>

@@ -24,6 +24,7 @@ export type AmortizationAsset = {
   category?: AmortizationCategory;
   priceCents: number;
   soldPriceCents?: number | null;
+  purchaseDate?: DateInput | null;
   startDate: DateInput;
   endDate?: DateInput | null;
 };
@@ -47,6 +48,41 @@ export type HistoricalPoint = {
   totalCents: number;
   categories: Record<string, number>;
 };
+
+export function buildCumulativeSpendSeries(
+  assets: AmortizationAsset[],
+  options: { from: DateInput; to: DateInput },
+) {
+  const from = toDateKey(options.from);
+  const to = toDateKey(options.to);
+  const changes = new Map<string, number>();
+
+  for (const asset of assets) {
+    const purchaseDate = toDateKey(asset.purchaseDate ?? asset.startDate);
+    changes.set(
+      purchaseDate,
+      (changes.get(purchaseDate) ?? 0) + asset.priceCents,
+    );
+    if (asset.endDate && asset.soldPriceCents) {
+      const soldDate = toDateKey(asset.endDate);
+      changes.set(
+        soldDate,
+        (changes.get(soldDate) ?? 0) - asset.soldPriceCents,
+      );
+    }
+  }
+
+  let totalCents = Array.from(changes).reduce(
+    (total, [date, cents]) =>
+      compareDateKey(date, from) < 0 ? total + cents : total,
+    0,
+  );
+
+  return eachDateKey(from, to).map((date) => {
+    totalCents += changes.get(date) ?? 0;
+    return { date, totalCents };
+  });
+}
 
 export function calculateAssetAmortization(
   asset: AmortizationAsset,

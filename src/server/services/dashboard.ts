@@ -1,6 +1,7 @@
 import { addDays, todayInTimeZone, toDateKey } from "@/lib/date";
 import {
   averageHistoricalSeries,
+  buildCumulativeSpendSeries,
   buildHistoricalSeries,
   calculateDailyCostCents,
   isAssetActiveOnDate,
@@ -35,17 +36,32 @@ export async function getDashboardData(
   ]);
 
   const today = todayInTimeZone();
-  const earliestStart = assets[0]?.startDate
-    ? toDateKey(assets[0].startDate)
-    : today;
+  const earliestTransaction = assets.reduce((earliest, asset) => {
+    const purchaseDate = toDateKey(asset.purchaseDate ?? asset.startDate);
+    const endDate = asset.endDate ? toDateKey(asset.endDate) : purchaseDate;
+    return purchaseDate < earliest
+      ? purchaseDate
+      : endDate < earliest
+        ? endDate
+        : earliest;
+  }, today);
   const from =
-    range === "all" ? earliestStart : addDays(today, -(RANGE_DAYS[range] - 1));
+    range === "all"
+      ? earliestTransaction
+      : addDays(today, -(RANGE_DAYS[range] - 1));
   const series = buildHistoricalSeries(assets, {
     from,
     to: today,
     today,
     model,
   });
+  const cumulativeSpendData = buildCumulativeSpendSeries(assets, {
+    from,
+    to: today,
+  }).map((point) => ({
+    date: point.date,
+    total: Number((point.totalCents / 100).toFixed(2)),
+  }));
   const todayPoint: HistoricalPoint =
     series.find((point) => point.date === today) ??
     { date: today, totalCents: 0, categories: {} };
@@ -104,6 +120,7 @@ export async function getDashboardData(
   return {
     categories,
     chartData,
+    cumulativeSpendData,
     chartPeriod,
     chartYearsOnly: series.length > 365,
     today,

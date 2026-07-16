@@ -164,6 +164,7 @@ export default async function DashboardPage({
         <>
           <DashboardCharts
             data={data.chartData}
+            cumulativeSpendData={data.cumulativeSpendData}
             categories={data.categories}
             period={data.chartPeriod}
             yearsOnly={data.chartYearsOnly}

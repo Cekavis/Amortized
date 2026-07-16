@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   averageHistoricalSeries,
+  buildCumulativeSpendSeries,
   buildHistoricalSeries,
   calculateAssetAmortization,
   calculateDailyCostCents,
@@ -11,6 +12,33 @@ import {
 import { inclusiveDays } from "@/lib/date";
 
 describe("amortization calculations", () => {
+  it("increases cumulative spend on purchase and decreases it on sale", () => {
+    const series = buildCumulativeSpendSeries(
+      [
+        {
+          id: "a1",
+          name: "手机",
+          categoryId: "c1",
+          priceCents: 10000,
+          purchaseDate: "2026-07-01",
+          startDate: "2026-07-01",
+          endDate: "2026-07-03",
+          soldPriceCents: 4000,
+        },
+        {
+          id: "a2",
+          name: "耳机",
+          categoryId: "c1",
+          priceCents: 5000,
+          startDate: "2026-07-02",
+        },
+      ],
+      { from: "2026-07-02", to: "2026-07-03" },
+    );
+
+    expect(series.map((point) => point.totalCents)).toEqual([15000, 11000]);
+  });
+
   it("counts inclusive days", () => {
     expect(inclusiveDays("2026-07-01", "2026-07-01")).toBe(1);
     expect(inclusiveDays("2026-07-01", "2026-07-03")).toBe(3);
